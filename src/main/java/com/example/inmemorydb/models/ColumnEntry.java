@@ -1,4 +1,4 @@
-package com.example.inmemorydb;
+package com.example.inmemorydb.models;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -10,5 +10,6 @@ import lombok.Setter;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ColumnEntry<R> {
+    private Column column;
     private R value;
 }

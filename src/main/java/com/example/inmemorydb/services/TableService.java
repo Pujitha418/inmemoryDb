@@ -1,6 +1,10 @@
 package com.example.inmemorydb.services;
 
+import com.example.inmemorydb.enums.IndexType;
+import com.example.inmemorydb.exceptions.IndexWithNameAlreadyExistsException;
+import com.example.inmemorydb.exceptions.InvalidColumnException;
 import com.example.inmemorydb.exceptions.InvalidFieldException;
+import com.example.inmemorydb.models.Column;
 import com.example.inmemorydb.models.Row;
 import com.example.inmemorydb.models.Schema;
 import com.example.inmemorydb.models.Table;
@@ -9,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class TableService {
@@ -22,7 +27,7 @@ public class TableService {
     }
 
     public Table createTable(String dbName, String tableName, Schema schema) {
-        Table table = new Table(tableName, schema, null);
+        Table table = new Table(tableName, schema, null, null, null);
         dbStore.addTableToDb(dbName, table);
         return table;
     }
@@ -31,5 +36,10 @@ public class TableService {
         Row row = new Row();
         row.setColumnEntries(schemaService.createColumnEntry(dbName, tableName, fieldValues));
         return dbStore.addRowToTable(dbName, tableName, row);
+    }
+
+    public Table createIndex(String dbName, String tableName, String indexName, Set<String> columns)
+            throws InvalidColumnException, IndexWithNameAlreadyExistsException {
+        return dbStore.createIndexOnTable(dbName, tableName, indexName, IndexType.SECONDARY, columns);
     }
 }

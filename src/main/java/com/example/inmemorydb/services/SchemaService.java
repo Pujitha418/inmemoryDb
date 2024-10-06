@@ -1,9 +1,8 @@
 package com.example.inmemorydb.services;
 
-import com.example.inmemorydb.ColumnEntry;
+import com.example.inmemorydb.models.ColumnEntry;
 import com.example.inmemorydb.exceptions.InvalidFieldException;
 import com.example.inmemorydb.models.Column;
-import com.example.inmemorydb.models.Schema;
 import com.example.inmemorydb.store.DbStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -30,7 +29,7 @@ public class SchemaService {
             if (!clazz.isAssignableFrom(columns.get(i).getClass())) {
                 throw new InvalidFieldException(schemaList.get(i).getName());
             }
-            ColumnEntry<?> col = new ColumnEntry<>(columns.get(i));
+            ColumnEntry<?> col = new ColumnEntry<>(schemaList.get(i), columns.get(i));
             result.add(col);
         }
 

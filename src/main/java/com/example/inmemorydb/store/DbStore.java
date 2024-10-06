@@ -1,19 +1,15 @@
 package com.example.inmemorydb.store;
 
-import com.example.inmemorydb.models.Database;
-import com.example.inmemorydb.models.Row;
-import com.example.inmemorydb.models.Table;
-import lombok.AllArgsConstructor;
+import com.example.inmemorydb.enums.IndexType;
+import com.example.inmemorydb.exceptions.IndexWithNameAlreadyExistsException;
+import com.example.inmemorydb.exceptions.InvalidColumnException;
+import com.example.inmemorydb.models.*;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.javatuples.Pair;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Getter
 @Setter
@@ -39,9 +35,17 @@ public class DbStore {
         if (!databaseMap.containsKey(dbName)) {
             return;
         }
+
+        initializeTableDefaults(table);
         databaseMap.get(dbName).setTableList(new ArrayList<>());
         databaseMap.get(dbName).getTableList().add(table);
         tableMap.put(new Pair<>(dbName, table.getName()), table);
+    }
+
+    private static void initializeTableDefaults(Table table) {
+        table.setRowList(new ArrayList<>());
+        table.setIndexList(new ArrayList<>());
+        table.setIndexTree(new HashMap<>());
     }
 
     public Table getTableFromDb(String dbName, String tableName) {
@@ -56,10 +60,73 @@ public class DbStore {
         if (!databaseMap.containsKey(dbName) || !tableMap.containsKey(tableKey)) {
             return null;
         }
-        if (tableMap.get(tableKey).getRowList() == null) {
-            tableMap.get(tableKey).setRowList(new ArrayList<>());
-        }
         tableMap.get(tableKey).getRowList().add(row);
         return tableMap.get(tableKey);
+    }
+
+    public Table createIndexOnTable(String dbName, String tableName, String indexName,
+                                    IndexType indexType, Set<String> columns) throws InvalidColumnException, IndexWithNameAlreadyExistsException {
+        Index index = new Index(indexName, indexType, columns);
+
+        //check if index name already exists on this table
+        checkIfIndexAlreadyExists(dbName, tableName, indexName);
+        
+        //check for invalid column names
+        validateIndexColumns(dbName, tableName, columns);
+
+        //TODO: check if a index already exists on these columns
+        tableMap.get(new Pair<>(dbName, tableName)).getIndexList().add(index);
+        Table table = tableMap.get(new Pair<>(dbName, tableName));
+        if (table.getRowList().isEmpty()) {
+            return table;
+        }
+        Map<String, List<Row>> indexColumnValuesListMap = populateIndex(columns, table);
+        tableMap.get(new Pair<>(dbName, tableName)).getIndexTree().put(index, indexColumnValuesListMap);
+
+        return tableMap.get(new Pair<>(dbName, tableName));
+    }
+
+    private void checkIfIndexAlreadyExists(String dbName, String tableName, String newIndexName)
+            throws IndexWithNameAlreadyExistsException {
+        for (Index index : tableMap.get(new Pair<>(dbName, tableName)).getIndexList()) {
+            if (index.getName().equals(newIndexName)) {
+                throw new IndexWithNameAlreadyExistsException(newIndexName, tableName, dbName);
+            }
+        }
+    }
+
+    private Map<String, List<Row>> populateIndex(Set<String> columns, Table table) {
+        Map<String, List<Row>> indexColumnValuesListMap = new HashMap<>();
+        for (Row row: table.getRowList()) {
+            StringBuilder key = new StringBuilder();
+            for (int i = 0; i < row.getColumnEntries().size(); i++) {
+                if (columns.contains(row.getColumnEntries().get(i).getColumn().getName())) {
+                    key.append(row.getColumnEntries().get(i).getValue());
+                    key.append('-');
+                }
+            }
+            if (!key.isEmpty()) {
+                key.deleteCharAt(key.length()-1);
+            }
+            if (indexColumnValuesListMap.containsKey(String.valueOf(key))) {
+                indexColumnValuesListMap.get(String.valueOf(key)).add(row);
+            } else {
+                indexColumnValuesListMap.put(String.valueOf(key), new ArrayList<>(Arrays.asList(row)));
+            }
+        }
+        return indexColumnValuesListMap;
+    }
+
+    private void validateIndexColumns(String dbName, String tableName, Set<String> indexColumns)
+            throws InvalidColumnException {
+        Set<String> columnSet = new HashSet<>();
+        for (Column column: tableMap.get(new Pair<>(dbName, tableName)).getSchema().getColumnList()) {
+            columnSet.add(column.getName());
+        }
+        for (String colName :  indexColumns) {
+            if (! columnSet.contains(colName)) {
+                throw new InvalidColumnException(colName);
+            }
+        }
     }
 }
