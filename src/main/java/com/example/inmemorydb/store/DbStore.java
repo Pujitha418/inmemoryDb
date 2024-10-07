@@ -15,8 +15,8 @@ import java.util.*;
 @Setter
 @Component
 public class DbStore {
-    Map<String, Database> databaseMap;
-    Map<Pair<String, String>, Table> tableMap;
+    private Map<String, Database> databaseMap;
+    private Map<Pair<String, String>, Table> tableMap;
 
     public DbStore() {
         this.databaseMap = new HashMap<>();
@@ -128,5 +128,34 @@ public class DbStore {
                 throw new InvalidColumnException(colName);
             }
         }
+    }
+
+    public Pair<Index, Map<String, List<Row>>> getIndexForColumns(String dbName, String tableName, List<String> indexColumns) {
+        for (Index index : tableMap.get(new Pair<>(dbName, tableName)).getIndexList()) {
+            var cnt = 0;
+            for (String colName: index.getColumns()) {
+                if (indexColumns.contains(colName)) {
+                    cnt += 1;
+                }
+            }
+            if (cnt == index.getColumns().size()) {
+                return new Pair<>(index, tableMap.get(new Pair<>(dbName, tableName)).getIndexTree().get(index));
+            }
+        }
+        Pair<Index, Map<String, List<Row>>> left;
+        Pair<Index, Map<String, List<Row>>> right = null;
+        if (!indexColumns.isEmpty()) {
+            left = getIndexForColumns(dbName, tableName, indexColumns.subList(0, indexColumns.size()-1));
+            if (left == null) {
+                right = getIndexForColumns(dbName, tableName, indexColumns.subList(1, indexColumns.size()));
+            } else {
+                return left;
+            }
+        }
+        return right;
+    }
+
+    public List<Row> getAllTableRows(String dbName, String tableName) {
+        return tableMap.get(new Pair<>(dbName, tableName)).getRowList();
     }
 }
